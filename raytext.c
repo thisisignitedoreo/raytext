@@ -113,7 +113,7 @@ void DrawGcTextEx(GcFont *font, const char *text, Vector2 pos, float fontsize, f
       stbtt_FreeBitmap(bitmap, NULL);
       
       stbrp_rect rect = {
-	.w = width, .h = height,
+	.w = width + 4, .h = height + 4,
       };
 
       Atlas *current_atlas = font->atlases.atlases[font->atlases.count - 1];
@@ -131,7 +131,7 @@ void DrawGcTextEx(GcFont *font, const char *text, Vector2 pos, float fontsize, f
 	}
       }
 
-      Rectangle glyph_rect = { rect.x, rect.y, rect.w, rect.h };
+      Rectangle glyph_rect = { rect.x, rect.y, width, height };
       UpdateTextureRec(current_atlas->texture, glyph_rect, image.data);
       UnloadImage(image);
 
@@ -208,7 +208,7 @@ Vector2 MeasureGcTextEx(GcFont *font, const char *text, float fontsize, float sp
       stbtt_FreeBitmap(bitmap, NULL);
       
       stbrp_rect rect = {
-	.w = width, .h = height,
+	.w = width + 4, .h = height + 4,
       };
 
       Atlas *current_atlas = font->atlases.atlases[font->atlases.count - 1];
@@ -226,7 +226,7 @@ Vector2 MeasureGcTextEx(GcFont *font, const char *text, float fontsize, float sp
 	}
       }
 
-      Rectangle glyph_rect = { rect.x, rect.y, rect.w, rect.h };
+      Rectangle glyph_rect = { rect.x, rect.y, width, height };
       UpdateTextureRec(current_atlas->texture, glyph_rect, image.data);
       UnloadImage(image);
 
@@ -252,7 +252,7 @@ Vector2 MeasureGcTextEx(GcFont *font, const char *text, float fontsize, float sp
     float scale = fontsize/font->fontsize;
     
     if (previous_codepoint >= 0) {
-      this_x += stbtt_GetCodepointKernAdvance(&font->font, previous_codepoint, codepoint) * font->scale * scale;
+      //this_x += stbtt_GetCodepointKernAdvance(&font->font, previous_codepoint, codepoint) * font->scale * scale;
     }
     
     this_x += glyph->advance * scale + spacing;
