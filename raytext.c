@@ -81,7 +81,7 @@ void DrawGcTextEx(GcFont *font, const char *text, Vector2 pos, float fontsize, f
   while ((codepoint = GetCodepoint(text, &size))) {
     text += size;
 
-    if (stbtt_FindGlyphIndex(&font.font, codepoint) == 0) codepoint = '?';
+    if (stbtt_FindGlyphIndex(&font->font, codepoint) == 0) codepoint = '?';
 
     if (codepoint == '\n') {
       pos.x = original_x;
@@ -175,7 +175,7 @@ Vector2 MeasureGcTextEx(GcFont *font, const char *text, float fontsize, float sp
   while ((codepoint = GetCodepoint(text, &size))) {
     text += size;
 
-    if (stbtt_FindGlyphIndex(&font.font, codepoint) == 0) codepoint = '?';
+    if (stbtt_FindGlyphIndex(&font->font, codepoint) == 0) codepoint = '?';
 
     if (codepoint == '\n') {
       total_size.x = total_size.x > this_x ? total_size.x : this_x;
