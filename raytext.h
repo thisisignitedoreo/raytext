@@ -11,7 +11,7 @@
 
 typedef struct Glyph {
   int codepoint, atlas_id;
-  float advance;
+  float advance, lsb;
   Vector2 offset;
   Rectangle rect;
 } Glyph;

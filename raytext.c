@@ -1,4 +1,5 @@
 #include <raytext.h>
+#include <math.h>
 
 static int hspacing = 0;
 
@@ -75,7 +76,77 @@ void UnloadGcFont(GcFont *font) {
   }
 }
 
+Glyph* GetGlyph(GcFont *font, int codepoint) {
+  Glyph *glyph = NULL;
+  for (size_t i = 0; i < font->glyphs.count; i++) {
+    if (font->glyphs.glyphs[i].codepoint == codepoint) {
+      glyph = &font->glyphs.glyphs[i];
+      break;
+    }
+  }
+
+  if (glyph == NULL) {
+    int width, height, xoff, yoff;
+    unsigned char *bitmap = stbtt_GetCodepointBitmap(&font->font, font->scale, font->scale, codepoint, &width, &height, &xoff, &yoff);
+      
+    Image image = GenImageColor(width, height, BLANK);
+    ImageFormat(&image, PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA);
+
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+	unsigned char *pixel = &((unsigned char*) image.data)[2 * (y * width + x)];
+	pixel[0] = 255; pixel[1] = ((unsigned char*) bitmap)[y * width + x];
+      }
+    }
+    stbtt_FreeBitmap(bitmap, NULL);
+      
+    stbrp_rect rect = {
+      .w = width + 4, .h = height + 4,
+    };
+
+    Atlas *current_atlas = font->atlases.atlases[font->atlases.count - 1];
+
+    if (!stbrp_pack_rects(&current_atlas->pack_context, &rect, 1)) {
+      if (font->atlases.count == font->atlases.capacity) {
+	font->atlases.capacity *= 2;
+	font->atlases.atlases = RL_REALLOC(font->atlases.atlases, font->atlases.capacity * sizeof(Atlas*));
+      }
+      current_atlas = font->atlases.atlases[font->atlases.count++];
+      InitAtlas(current_atlas);
+      if (!stbrp_pack_rects(&current_atlas->pack_context, &rect, 1)) {
+	TraceLog(LOG_WARNING, "Can't pack bitmap into an empty atlas");
+	return NULL;
+      }
+    }
+
+    Rectangle glyph_rect = { rect.x, rect.y, width, height };
+    UpdateTextureRec(current_atlas->texture, glyph_rect, image.data);
+    UnloadImage(image);
+
+    int advance, lsb;
+    stbtt_GetCodepointHMetrics(&font->font, codepoint, &advance, &lsb);
+      
+    Glyph this_glyph = {
+      .codepoint = codepoint,
+      .advance = advance * font->scale,
+      .atlas_id = font->atlases.count - 1,
+      .rect = glyph_rect,
+      .offset = (Vector2) { xoff, yoff },
+    };
+
+    if (font->glyphs.count == font->glyphs.capacity) {
+      font->glyphs.capacity *= 2;
+      font->glyphs.glyphs = RL_REALLOC(font->glyphs.glyphs, font->glyphs.capacity * sizeof(Glyph));
+    }
+    font->glyphs.glyphs[font->glyphs.count++] = this_glyph;
+    glyph = &font->glyphs.glyphs[font->glyphs.count - 1];
+  }
+
+  return glyph;
+}
+
 void DrawGcTextEx(GcFont *font, const char *text, Vector2 pos, float fontsize, float spacing, Color tint) {
+  pos.x = roundf(pos.x); pos.y = roundf(pos.y);
   int previous_codepoint = -1, codepoint = 0, size = 0;
   float original_x = pos.x;
   while ((codepoint = GetCodepoint(text, &size))) {
@@ -88,72 +159,10 @@ void DrawGcTextEx(GcFont *font, const char *text, Vector2 pos, float fontsize, f
       pos.y += hspacing + fontsize;
       continue;
     }
+
+    Glyph *glyph = GetGlyph(font, codepoint);
+    if (glyph == NULL) continue;
     
-    Glyph *glyph = NULL;
-    for (size_t i = 0; i < font->glyphs.count; i++) {
-      if (font->glyphs.glyphs[i].codepoint == codepoint) {
-	glyph = &font->glyphs.glyphs[i];
-	break;
-      }
-    }
-
-    if (glyph == NULL) {
-      int width, height, xoff, yoff;
-      unsigned char *bitmap = stbtt_GetCodepointBitmap(&font->font, font->scale, font->scale, codepoint, &width, &height, &xoff, &yoff);
-      
-      Image image = GenImageColor(width, height, BLANK);
-      ImageFormat(&image, PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA);
-
-      for (int y = 0; y < height; y++) {
-	for (int x = 0; x < width; x++) {
-	  unsigned char *pixel = &((unsigned char*) image.data)[2 * (y * width + x)];
-	  pixel[0] = 255; pixel[1] = ((unsigned char*) bitmap)[y * width + x];
-	}
-      }
-      stbtt_FreeBitmap(bitmap, NULL);
-      
-      stbrp_rect rect = {
-	.w = width + 4, .h = height + 4,
-      };
-
-      Atlas *current_atlas = font->atlases.atlases[font->atlases.count - 1];
-
-      if (!stbrp_pack_rects(&current_atlas->pack_context, &rect, 1)) {
-	if (font->atlases.count == font->atlases.capacity) {
-	  font->atlases.capacity *= 2;
-	  font->atlases.atlases = RL_REALLOC(font->atlases.atlases, font->atlases.capacity * sizeof(Atlas*));
-	}
-	current_atlas = font->atlases.atlases[font->atlases.count++];
-	InitAtlas(current_atlas);
-	if (!stbrp_pack_rects(&current_atlas->pack_context, &rect, 1)) {
-	  TraceLog(LOG_WARNING, "Can't pack bitmap into an empty atlas");
-	  continue;
-	}
-      }
-
-      Rectangle glyph_rect = { rect.x, rect.y, width, height };
-      UpdateTextureRec(current_atlas->texture, glyph_rect, image.data);
-      UnloadImage(image);
-
-      int advance, lsb;
-      stbtt_GetCodepointHMetrics(&font->font, codepoint, &advance, &lsb);
-      
-      Glyph this_glyph = {
-	.codepoint = codepoint,
-	.advance = advance * font->scale,
-	.atlas_id = font->atlases.count - 1,
-	.rect = glyph_rect,
-	.offset = (Vector2) { xoff, yoff },
-      };
-
-      if (font->glyphs.count == font->glyphs.capacity) {
-	font->glyphs.capacity *= 2;
-	font->glyphs.glyphs = RL_REALLOC(font->glyphs.glyphs, font->glyphs.capacity * sizeof(Glyph));
-      }
-      font->glyphs.glyphs[font->glyphs.count++] = this_glyph;
-      glyph = &font->glyphs.glyphs[font->glyphs.count - 1];
-    }
-
     float scale = fontsize/font->fontsize;
     
     if (previous_codepoint >= 0) {
@@ -184,81 +193,21 @@ Vector2 MeasureGcTextEx(GcFont *font, const char *text, float fontsize, float sp
       continue;
     }
     
-    Glyph *glyph = NULL;
-    for (size_t i = 0; i < font->glyphs.count; i++) {
-      if (font->glyphs.glyphs[i].codepoint == codepoint) {
-	glyph = &font->glyphs.glyphs[i];
-	break;
-      }
-    }
-
-    if (glyph == NULL) {
-      int width, height, xoff, yoff;
-      unsigned char *bitmap = stbtt_GetCodepointBitmap(&font->font, font->scale, font->scale, codepoint, &width, &height, &xoff, &yoff);
-      
-      Image image = GenImageColor(width, height, BLANK);
-      ImageFormat(&image, PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA);
-
-      for (int y = 0; y < height; y++) {
-	for (int x = 0; x < width; x++) {
-	  unsigned char *pixel = &((unsigned char*) image.data)[2 * (y * width + x)];
-	  pixel[0] = 255; pixel[1] = ((unsigned char*) bitmap)[y * width + x];
-	}
-      }
-      stbtt_FreeBitmap(bitmap, NULL);
-      
-      stbrp_rect rect = {
-	.w = width + 4, .h = height + 4,
-      };
-
-      Atlas *current_atlas = font->atlases.atlases[font->atlases.count - 1];
-
-      if (!stbrp_pack_rects(&current_atlas->pack_context, &rect, 1)) {
-	if (font->atlases.count == font->atlases.capacity) {
-	  font->atlases.capacity *= 2;
-	  font->atlases.atlases = RL_REALLOC(font->atlases.atlases, font->atlases.capacity * sizeof(Atlas*));
-	}
-	current_atlas = font->atlases.atlases[font->atlases.count++];
-	InitAtlas(current_atlas);
-	if (!stbrp_pack_rects(&current_atlas->pack_context, &rect, 1)) {
-	  TraceLog(LOG_WARNING, "Can't pack bitmap into an empty atlas");
-	  continue;
-	}
-      }
-
-      Rectangle glyph_rect = { rect.x, rect.y, width, height };
-      UpdateTextureRec(current_atlas->texture, glyph_rect, image.data);
-      UnloadImage(image);
-
-      int advance, lsb;
-      stbtt_GetCodepointHMetrics(&font->font, codepoint, &advance, &lsb);
-      
-      Glyph this_glyph = {
-	.codepoint = codepoint,
-	.advance = advance * font->scale,
-	.atlas_id = font->atlases.count - 1,
-	.rect = glyph_rect,
-	.offset = (Vector2) { xoff, yoff },
-      };
-
-      if (font->glyphs.count == font->glyphs.capacity) {
-	font->glyphs.capacity *= 2;
-	font->glyphs.glyphs = RL_REALLOC(font->glyphs.glyphs, font->glyphs.capacity * sizeof(Glyph));
-      }
-      font->glyphs.glyphs[font->glyphs.count++] = this_glyph;
-      glyph = &font->glyphs.glyphs[font->glyphs.count - 1];
-    }
-
+    Glyph *glyph = GetGlyph(font, codepoint);
+    if (glyph == NULL) continue;
+    
     float scale = fontsize/font->fontsize;
     
     if (previous_codepoint >= 0) {
-      //this_x += stbtt_GetCodepointKernAdvance(&font->font, previous_codepoint, codepoint) * font->scale * scale;
+      this_x += stbtt_GetCodepointKernAdvance(&font->font, previous_codepoint, codepoint) * font->scale * scale;
     }
     
     this_x += glyph->advance * scale + spacing;
 
     previous_codepoint = codepoint;
   }
+
   total_size.x = total_size.x > this_x ? total_size.x : this_x;
+  
   return total_size;
 }
