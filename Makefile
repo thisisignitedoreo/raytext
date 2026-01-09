@@ -1,6 +1,7 @@
 CC := gcc
 AR := ar
 CFLAGS := -Wall -Wextra -Werror -I. -Iraylib/src
+LDFALGS := -L. -Lraylib/src -lraytext -lraylib -lm
 
 all: libraytext.a example
 
@@ -11,4 +12,4 @@ libraytext.a: raytext.o
 	$(AR) rcs $@ $^
 
 example: example.c libraytext.a
-	$(CC) $(CFLAGS) -o $@ example.c -L. -Lraylib/src -lraytext -lraylib -lm
+	$(CC) $(CFLAGS) -o $@ example.c $(LDFLAGS)

@@ -11,7 +11,7 @@
 
 typedef struct Glyph {
   int codepoint, atlas_id;
-  float advance, lsb;
+  float advance, fontsize;
   Vector2 offset;
   Rectangle rect;
 } Glyph;
@@ -38,25 +38,24 @@ typedef struct Atlases {
   size_t capacity;
 } Atlases;
 
-typedef struct GcFont {
+typedef struct RtFont {
   Glyphs glyphs;
   Atlases atlases;
   stbtt_fontinfo font;
-  float fontsize, scale, baseline;
-  int ascent;
+  int ascent, descent;
   
   const unsigned char *font_buffer;
   size_t buffer_length;
   bool is_buffer_owned;
-} GcFont;
+} RtFont;
 
-void SetGcTextLineSpacing(int spacing);
+void SetRtTextLineSpacing(int spacing);
 
-GcFont LoadGcFont(const char *filename, float fontsize);
-GcFont LoadGcFontFromMemory(const unsigned char *buffer, size_t length, float fontsize);
-void UnloadGcFont(GcFont *font);
+RtFont LoadRtFont(const char *filename);
+RtFont LoadRtFontFromMemory(const unsigned char *buffer, size_t length);
+void UnloadRtFont(RtFont *font);
 
-void DrawGcTextEx(GcFont *font, const char *text, Vector2 pos, float fontsize, float spacing, Color tint);
-Vector2 MeasureGcTextEx(GcFont *font, const char *text, float fontsize, float spacing);
+void DrawRtTextEx(RtFont *font, const char *text, Vector2 pos, float fontsize, float spacing, Color tint);
+Vector2 MeasureRtTextEx(RtFont *font, const char *text, float fontsize, float spacing);
 
 #endif // RAYTEXT_H
