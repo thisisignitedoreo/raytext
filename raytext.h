@@ -114,6 +114,45 @@ void DrawRtTextEx(RtFont *font, const char *text, Vector2 pos, float fontsize, f
    Thread UNSAFE. Should only be called from the thread that created the font. */
 Vector2 MeasureRtTextEx(RtFont *font, const char *text, float fontsize, float spacing);
 
+/* Internal initial capacity of the font chain array. Grows when needed. */
+#define RAYTEXT_CHAINED_FONT_DEFAULT_CAP 8
+
+/* Font chain structure. Allows you to add multiple fonts with different
+   codepoints and use it as if it's just one font. Picks the first font
+   it can find a codepoint in. */
+typedef struct RtChainFont {
+  RtFont *fonts;
+  size_t count;
+  size_t capacity;
+} RtChainedFont;
+
+/* Loads an empty chained font. */
+RtChainedFont LoadRtChainedFont(void);
+
+/* Chain a font loaded from a file. */
+void RtChainFont(RtChainedFont *font, const char *filename);
+
+/* Chain a font loaded from a buffer.
+   Does NOT take ownership of a buffer: this pointer must be valid until the
+   whole font chain is unloaded. */
+void RtChainFontFromMemory(RtChainedFont *font, const unsigned char *buffer, size_t length);
+
+/* Unloads the whole chain of fonts. Frees the underlying buffers if there are
+   fonts that were loaded from a file. */
+void UnloadRtChainedFont(RtChainedFont *font);
+
+/* Draws text in the given position with the given fontsize, spacing and tint.
+   All arguments are analagous to raylib. Text is zero-terminated UTF-8.
+   Thread UNSAFE. Should only be called from the thread that created the font. */
+void DrawRtCTextEx(RtChainedFont *font, const char *text, Vector2 pos, float fontsize, float spacing, Color tint);
+
+/* Measures the size of a text string with given fontsize and spacing.
+   All arguments are analagous to raylib. Text is zero-terminated UTF-8.
+   NOTE: This function also rasterizes glyphs so it's as slow as drawing the
+         text to the screen.
+   Thread UNSAFE. Should only be called from the thread that created the font. */
+Vector2 MeasureRtCTextEx(RtChainedFont *font, const char *text, float fontsize, float spacing);
+
 #ifdef __cplusplus
 }
 #endif

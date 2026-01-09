@@ -211,3 +211,117 @@ Vector2 MeasureRtTextEx(RtFont *font, const char *text, float fontsize, float sp
   
   return total_size;
 }
+
+RtChainedFont LoadRtChainedFont(void) {
+  return (RtChainedFont) {
+    .fonts = RL_CALLOC(RAYTEXT_CHAINED_FONT_DEFAULT_CAP, sizeof(RtFont)),
+    .count = 0,
+    .capacity = RAYTEXT_CHAINED_FONT_DEFAULT_CAP,
+  };
+}
+
+void RtChainFont(RtChainedFont *font, const char *filename) {
+  RtFont subfont = LoadRtFont(filename);
+  if (font->count == font->capacity) {
+    font->fonts = RL_REALLOC(font->fonts, (font->capacity *= 2) * sizeof(RtFont));
+  }
+  font->fonts[font->count++] = subfont;
+}
+
+void RtChainFontFromMemory(RtChainedFont *font, const unsigned char *buffer, size_t length) {
+  RtFont subfont = LoadRtFontFromMemory(buffer, length);
+  if (font->count == font->capacity) {
+    font->fonts = RL_REALLOC(font->fonts, (font->capacity *= 2) * sizeof(RtFont));
+  }
+  font->fonts[font->count++] = subfont;
+}
+
+void UnloadRtChainedFont(RtChainedFont *font) {
+  for (size_t i = 0; i < font->count; i++) {
+    UnloadRtFont(&font->fonts[i]);
+  }
+  RL_FREE(font->fonts);
+}
+
+RtFont *FindSubfont(RtChainedFont *font, int *codepoint) {
+  size_t i = 0;
+  while (stbtt_FindGlyphIndex(&font->fonts[i].font, *codepoint) == 0) {
+    i++;
+    if (i >= font->count) {
+      i = 0;
+      *codepoint = '?';
+      break;
+    }
+  }
+
+  return &font->fonts[i];
+}
+
+void DrawRtCTextEx(RtChainedFont *font, const char *text, Vector2 pos, float fontsize, float spacing, Color tint) {
+  if (font->count == 0) return;
+  pos.x = roundf(pos.x); pos.y = roundf(pos.y);
+  int previous_codepoint = -1, codepoint = 0, size = 0;
+  float original_x = pos.x;
+  while ((codepoint = GetCodepoint(text, &size))) {
+    text += size;
+
+    RtFont *subfont = FindSubfont(font, &codepoint);
+
+    if (codepoint == '\n') {
+      pos.x = original_x;
+      pos.y += hspacing + fontsize;
+      continue;
+    }
+
+    Glyph *glyph = GetGlyph(subfont, codepoint, fontsize);
+    if (glyph == NULL) continue;
+    
+    float scale = stbtt_ScaleForPixelHeight(&subfont->font, fontsize);
+    
+    if (previous_codepoint >= 0) {
+      pos.x += stbtt_GetCodepointKernAdvance(&subfont->font, previous_codepoint, codepoint) * scale;
+    }
+    
+    DrawTexturePro(subfont->atlases.atlases[glyph->atlas_id]->texture, glyph->rect, (Rectangle) { pos.x + glyph->offset.x, pos.y + subfont->ascent * scale + glyph->offset.y, glyph->rect.width, glyph->rect.height }, (Vector2) { 0, 0 }, 0.0f, tint);
+    
+    pos.x += glyph->advance + spacing;
+
+    previous_codepoint = codepoint;
+  }
+}
+
+Vector2 MeasureRtCTextEx(RtChainedFont *font, const char *text, float fontsize, float spacing) {
+  if (font->count == 0) return (Vector2) {0, 0};
+  int previous_codepoint = -1, codepoint = 0, size = 0;
+  Vector2 total_size = { 0.0f, hspacing + fontsize };
+  float this_x = 0.0f;
+  while ((codepoint = GetCodepoint(text, &size))) {
+    text += size;
+
+    RtFont *subfont = FindSubfont(font, &codepoint);
+
+    if (codepoint == '\n') {
+      total_size.x = total_size.x > this_x ? total_size.x : this_x;
+      this_x = 0.0f;
+      total_size.y += hspacing + fontsize;
+      continue;
+    }
+    
+    Glyph *glyph = GetGlyph(subfont, codepoint, fontsize);
+    if (glyph == NULL) continue;
+    
+    float scale = stbtt_ScaleForPixelHeight(&subfont->font, fontsize);
+    
+    if (previous_codepoint >= 0) {
+      this_x += stbtt_GetCodepointKernAdvance(&subfont->font, previous_codepoint, codepoint) * scale;
+    }
+    
+    this_x += glyph->advance + spacing;
+
+    previous_codepoint = codepoint;
+  }
+
+  total_size.x = total_size.x > this_x ? total_size.x : this_x;
+  
+  return total_size;
+}
