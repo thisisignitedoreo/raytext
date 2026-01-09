@@ -3,6 +3,7 @@
 #include "raytext.h"
 
 int main(void) {
+  SetConfigFlags(FLAG_MSAA_4X_HINT);
   InitWindow(1200, 200, "Hello, RayText!");
 
   RtFont font = LoadRtFont("font.ttf");

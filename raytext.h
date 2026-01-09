@@ -7,7 +7,7 @@
 #include <stb_rect_pack.h>
 #include <stb_truetype.h>
 
-#define RAYTEXT_GLYPH_DEFAULT_CAP 8
+#define RAYTEXT_GLYPH_DEFAULT_CAP 256
 
 typedef struct Glyph {
   int codepoint, atlas_id;
@@ -22,9 +22,9 @@ typedef struct Glyphs {
   size_t capacity;
 } Glyphs;
 
-#define RAYTEXT_ATLAS_DEFAULT_CAP 2
-#define RAYTEXT_ATLAS_DEFAULT_SIZE 256
-#define RAYTEXT_ATLAS_NODE_COUNT 256
+#define RAYTEXT_ATLAS_DEFAULT_CAP 16
+#define RAYTEXT_ATLAS_DEFAULT_SIZE 1024
+#define RAYTEXT_ATLAS_NODE_COUNT 1024
 
 typedef struct Atlas {
   Texture2D texture;

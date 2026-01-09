@@ -68,7 +68,8 @@ Glyph *GetGlyph(RtFont *font, int codepoint, float fontsize) {
 	font->atlases.capacity *= 2;
 	font->atlases.atlases = RL_REALLOC(font->atlases.atlases, font->atlases.capacity * sizeof(Atlas*));
       }
-      current_atlas = font->atlases.atlases[font->atlases.count++];
+      font->atlases.atlases[font->atlases.count++] = RL_CALLOC(1, sizeof(Atlas));
+      current_atlas = font->atlases.atlases[font->atlases.count - 1];
       InitAtlas(current_atlas);
       if (!stbrp_pack_rects(&current_atlas->pack_context, &rect, 1)) {
 	TraceLog(LOG_WARNING, "RAYTEXT: Can't pack bitmap into an empty atlas");
@@ -115,7 +116,7 @@ RtFont LoadRtFontFromMemory(const unsigned char *buffer, size_t length) {
   font.atlases.capacity = RAYTEXT_ATLAS_DEFAULT_CAP;
   font.atlases.count = 1;
   font.atlases.atlases = RL_CALLOC(font.atlases.capacity, sizeof(Atlas*));
-  font.atlases.atlases[0] = RL_CALLOC(font.atlases.capacity, sizeof(Atlas));
+  font.atlases.atlases[0] = RL_CALLOC(1, sizeof(Atlas));
   InitAtlas(font.atlases.atlases[0]);
   
   stbtt_InitFont(&font.font, buffer, 0);
