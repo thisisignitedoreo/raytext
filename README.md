@@ -1,6 +1,8 @@
 # raytext
 Simple Dynamic Glyph Caching (DGC) font implementation for raylib.
 
+Also implements dynamic font sizing.
+
 (Almost) drop-in replacement of the standard text API of raylib.
 
 ## Gallery
